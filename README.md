@@ -1,47 +1,45 @@
 # OS Detector
 
-## 描述
-这是一个基于TCP/IP栈指纹识别技术的操作系统检测工具，使用Go语言实现。该工具参考了nmap的操作系统检测原理，能够通过分析网络数据包的特征来识别目标主机运行的操作系统类型。
+## Description
+This is an operating system detection tool based on TCP/IP stack fingerprinting technology, implemented in Go. The tool references the operating system detection principles of nmap and can identify the operating system type of the target host by analyzing the characteristics of network packets.
 
-## 功能特点
+## Features
 
-- 支持通过ICMP协议（Ping）检测操作系统
-- 支持通过TCP协议检测操作系统
-- 分析IP头部特征（DF标志、TTL值）
-- 分析TCP头部特征（窗口大小、MSS值）
-- 支持多种操作系统的识别（Windows、Linux、FreeBSD等）
-- 提供详细的检测过程日志
+- Supports operating system detection via ICMP protocol (Ping)
+- Supports operating system detection via TCP protocol
+- Analyzes IP header characteristics (DF flag, TTL value)
+- Analyzes TCP header characteristics (window size, MSS value)
+- Supports identification of multiple operating systems (Windows, Linux, FreeBSD, etc.)
+- Provides detailed detection process logs
 
-## 使用方法
+## Usage
 ```bash
-# 安装依赖
+# Install dependencies
 go mod tidy
 
-# 编译
+# Compile
 go build -o osdetector
 
-# 运行
-./osdetector -t 192.168.1.1  # 指定目标IP地址
-./osdetector -t 192.168.1.1 -v  # 显示详细信息
+# Run
+./osdetector -t 192.168.1.1  # Specify target IP address
+./osdetector -t 192.168.1.1 -v  # Show detailed information
 ```
 
-## 实现原理
+## Implementation Principle
+This tool is based on TCP/IP stack fingerprinting technology, identifying the operating system type of the target host by analyzing the characteristics of network packets. The main techniques used are:
 
-该工具基于TCP/IP栈指纹识别技术，通过分析网络数据包的特征来识别目标主机运行的操作系统类型。主要使用以下技术：
+1. FIN Probe - Sends a FIN packet to an open port and analyzes the response
+2. IP Header Analysis - Analyzes the DF (Don't Fragment) flag and TTL (Time To Live) value
+3. TCP Option Analysis - Analyzes TCP window size and MSS (Maximum Segment Size) value
+4. ICMP Message Reference - Analyzes the characteristics of ICMP error messages
+Different operating systems have subtle differences in their TCP/IP implementations. By analyzing these differences, the operating system type of the target host can be inferred.
 
-1. **FIN探测** - 发送FIN包到开放端口并分析响应
-2. **IP头部分析** - 分析DF（Don't Fragment）标志和TTL（Time To Live）值
-3. **TCP选项分析** - 分析TCP窗口大小和MSS（Maximum Segment Size）值
-4. **ICMP消息引用** - 分析ICMP错误消息的特征
-
-不同操作系统的TCP/IP实现有细微差别，通过分析这些差别，可以推断出目标主机运行的操作系统类型。
-
-### 检测流程
+### Detection Process
 
 ![progress](./img/progress.png)
 
 
-### 运行案例
+### Example of Running
 ```bash
 osDetector % go run main.go -t 192.168.110.71
 20:37:25 开始对目标: 192.168.110.71 进行操作系统识别
@@ -58,7 +56,7 @@ osDetector % go run main.go -t 192.168.110.71
 操作系统最终检测结果为： Windows 10
 ```
 
-## 参考资料
+## References
 - [NMAP](https://nmap.org/nmap-fingerprinting-article.txt)
 - [RFC 793](https://datatracker.ietf.org/doc/html/rfc761)
 - [RFC 9293](https://www.rfc-editor.org/info/rfc9293)
