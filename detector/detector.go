@@ -7,14 +7,12 @@ import (
 	"time"
 )
 
-// OSDetector 表示操作系统检测器
 type OSDetector struct {
 	Verbose         bool
 	lastCheckedPort int            // 记录最后检查的端口号
 	osWeights       map[string]int // 操作系统权重表
 }
 
-// NewOSDetector 创建一个新的操作系统检测器
 func NewOSDetector(verbose bool) *OSDetector {
 	// 初始化操作系统权重表
 	osWeights := make(map[string]int)
@@ -125,11 +123,12 @@ func (d *OSDetector) DetectOS(targetIP string, isPing bool) string {
 		if containsIgnoreCase(os, "win") {
 			hasWindows = true
 			log.Println("开始使用SMB端口检测操作系统类型")
-			// 注意：这里简化了SMB检测，实际实现可能需要更复杂的逻辑
-			// smbResult := d.TestOSUsingSMB(targetIP)
-			// if smbResult != "" {
-			// 	return smbResult
-			// }
+			smbResult := d.TestOSUsingSMB(targetIP)
+			if len(smbResult) > 0 {
+				// 将SMB检测结果合并到结果集
+				resultSet = d.intersectOSSets(resultSet, smbResult)
+				log.Println("SMB检测结果为：", d.formatOSSet(smbResult))
+			}
 			break
 		}
 	}
