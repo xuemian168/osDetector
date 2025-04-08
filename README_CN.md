@@ -31,10 +31,10 @@ go build -o osdetector
 
 该工具基于TCP/IP栈指纹识别技术，通过分析网络数据包的特征来识别目标主机运行的操作系统类型。主要使用以下技术：
 
-1. **FIN探测** - 发送FIN包到开放端口并分析响应
-2. **IP头部分析** - 分析DF（Don't Fragment）标志和TTL（Time To Live）值
-3. **TCP选项分析** - 分析TCP窗口大小和MSS（Maximum Segment Size）值
-4. **ICMP消息引用** - 分析ICMP错误消息的特征
+1. **IP头部分析** - 分析DF（Don't Fragment）标志和TTL（Time To Live）值
+2. **TCP特征分析** - 分析TCP窗口大小和MSS（Maximum Segment Size）值
+3. **ICMP消息引用** - 分析ICMP错误消息的特征
+4. **SMB特征分析** - 根据提取的操作系统信息字符串判断操作系统类型
 
 不同操作系统的TCP/IP实现有细微差别，通过分析这些差别，可以推断出目标主机运行的操作系统类型。
 

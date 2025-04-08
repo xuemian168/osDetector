@@ -30,11 +30,11 @@ go build -o osdetector
 ## Implementation Principle
 This tool is based on TCP/IP stack fingerprinting technology, identifying the operating system type of the target host by analyzing the characteristics of network packets. The main techniques used are:
 
-1. FIN Probe - Sends a FIN packet to an open port and analyzes the response
-2. IP Header Analysis - Analyzes the DF (Don't Fragment) flag and TTL (Time To Live) value
-3. TCP Option Analysis - Analyzes TCP window size and MSS (Maximum Segment Size) value
-4. ICMP Message Reference - Analyzes the characteristics of ICMP error messages
+1. IP Header Analysis - Analyzes the DF (Don't Fragment) flag and TTL (Time To Live) value
+2. TCP Option Analysis - Analyzes TCP window size and MSS (Maximum Segment Size) value
+3. ICMP Message Reference - Analyzes the characteristics of ICMP error messages
 Different operating systems have subtle differences in their TCP/IP implementations. By analyzing these differences, the operating system type of the target host can be inferred.
+4. SMB Feature Analysis - Based on the extracted operating system information string, the operating system type can be inferred.
 
 ### Detection Process
 
