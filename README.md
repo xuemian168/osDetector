@@ -63,3 +63,7 @@ osDetector % go run main.go -t 192.168.110.71
 - [RFC 791](https://datatracker.ietf.org/doc/html/rfc791)
 - [RFC 6691](https://www.rfc-editor.org/rfc/rfc6691.html)
 - [RFC 6973](https://datatracker.ietf.org/doc/html/rfc6973)
+
+## TODO LIST
+- [ ] Support for Bunch of IPs
+-  [ ] Support more Portocol Detection 
