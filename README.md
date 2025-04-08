@@ -40,6 +40,28 @@ go build -o osdetector
 
 ![progress](./img/progress.png)
 
+
+### 运行案例
+```bash
+osDetector % go run main.go -t 192.168.110.71
+20:37:25 开始对目标: 192.168.110.71 进行操作系统识别
+20:37:31 目标主机端口 135 开放，确认存活
+20:37:31 开始使用TCP端口检测操作系统类型
+20:37:37 检测到Windows特征端口 135 开放，可能是Windows系统
+20:37:37 找到开放端口 135，TTL=128, DF=true, WinSize=8192, MSS=1440
+20:37:37 找到开放端口 135，TTL=128, DF=true, WinSize=8192, MSS=1440
+20:37:37 TCP检测结果为： Windows XP, Windows 7, Windows 10
+20:37:37 检测到Windows特征端口 135，根据端口特征调整Windows系统权重
+20:37:37 开始使用SMB端口检测操作系统类型
+20:37:37 最终选择的操作系统: Windows 10 (权重: 6)
+
+操作系统最终检测结果为： Windows 10
+```
+
 ## 参考资料
-- https://nmap.org/nmap-fingerprinting-article.txt
--
+- [NMAP](https://nmap.org/nmap-fingerprinting-article.txt)
+- [RFC 793](https://datatracker.ietf.org/doc/html/rfc761)
+- [RFC 9293](https://www.rfc-editor.org/info/rfc9293)
+- [RFC 791](https://datatracker.ietf.org/doc/html/rfc791)
+- [RFC 6691](https://www.rfc-editor.org/rfc/rfc6691.html)
+- [RFC 6973](https://datatracker.ietf.org/doc/html/rfc6973)
