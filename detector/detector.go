@@ -94,30 +94,6 @@ func (d *OSDetector) DetectOS(targetIP string, isPing bool) string {
 	return finalResult
 }
 
-// getMethodName 获取方法名称
-func getMethodName(method func(string) map[string]bool) string {
-	switch method {
-	case (*OSDetector).TestOSUsingICMP:
-		return "ICMP"
-	case (*OSDetector).TestOSUsingTCP:
-		return "TCP"
-	case (*OSDetector).TestOSUsingSMB:
-		return "SMB"
-	case (*OSDetector).TCPStackFingerprint:
-		return "TCP Stack"
-	case (*OSDetector).HTTPFingerprint:
-		return "HTTP"
-	case (*OSDetector).SSHFingerprint:
-		return "SSH"
-	case (*OSDetector).DNSFingerprint:
-		return "DNS"
-	case (*OSDetector).NTPFingerprint:
-		return "NTP"
-	default:
-		return "Unknown"
-	}
-}
-
 // defaultOSDetection 默认操作系统检测
 func (d *OSDetector) defaultOSDetection(targetIP string) string {
 	// 检查常见端口
