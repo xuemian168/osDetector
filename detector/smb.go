@@ -1,160 +1,186 @@
 package detector
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
-	"log"
-	"math/rand/v2"
 	"net"
-	"strings"
-	"time"
+
+	"github.com/hirochachacha/go-smb2"
 )
 
-// SMB协议相关常量
+// NTLMSSP 消息标识
+var NTLMSSP_SIGNATURE = []byte("NTLMSSP\x00")
+
+// NTLMSSP 消息类型
 const (
-	SMB_PORT    = 445
-	SMB_TIMEOUT = 5 * time.Second
-
-	// SMB命令
-	SMB_COM_NEGOTIATE          = 0x72
-	SMB_COM_SESSION_SETUP_ANDX = 0x73
-
-	// SMB标志
-	SMB_FLAGS_CASE_INSENSITIVE    = 0x08
-	SMB_FLAGS_CANONICALIZED_PATHS = 0x10
-	SMB_FLAGS_REPLY               = 0x80
-
-	// SMB扩展标志
-	SMB_FLAGS2_UNICODE           = 0x8000
-	SMB_FLAGS2_NT_STATUS         = 0x4000
-	SMB_FLAGS2_EXTENDED_SECURITY = 0x0800
-	SMB_FLAGS2_LONG_NAMES        = 0x0001
+	NTLMSSP_NEGOTIATE = 1
+	NTLMSSP_CHALLENGE = 2
+	NTLMSSP_AUTH      = 3
 )
 
-// TestOSUsingSMB 使用SMB协议检测操作系统类型
+// NTLMSSP Version 结构
+type NTLMSSPVersion struct {
+	ProductMajorVersion uint8
+	ProductMinorVersion uint8
+	ProductBuild        uint16
+	Reserved            [3]byte
+	NTLMRevisionCurrent uint8
+}
+
+// smbDebugConn 用于调试SMB通信和捕获NTLMSSP消息
+type smbDebugConn struct {
+	net.Conn
+	verbose     bool
+	ntlmsspData []byte
+}
+
+func (c *smbDebugConn) Read(b []byte) (int, error) {
+	n, err := c.Conn.Read(b)
+	if c.verbose {
+		fmt.Printf("<<< SMB READ %d bytes: %x\n", n, b[:n])
+	}
+
+	// 查找并保存NTLMSSP消息
+	if n > 0 {
+		if idx := bytes.Index(b[:n], NTLMSSP_SIGNATURE); idx != -1 {
+			c.ntlmsspData = append(c.ntlmsspData, b[idx:n]...)
+		}
+	}
+	return n, err
+}
+
+func (c *smbDebugConn) Write(b []byte) (int, error) {
+	if c.verbose {
+		fmt.Printf(">>> SMB WRITE %d bytes: %x\n", len(b), b)
+	}
+	return c.Conn.Write(b)
+}
+
+// 解析NTLMSSP Challenge消息中的版本信息
+func parseNTLMSSPVersion(data []byte) (*NTLMSSPVersion, error) {
+	if len(data) < 64 { // NTLMSSP Challenge消息至少需要64字节
+		return nil, fmt.Errorf("data too short")
+	}
+
+	// 查找NTLMSSP签名
+	idx := bytes.Index(data, NTLMSSP_SIGNATURE)
+	if idx == -1 {
+		return nil, fmt.Errorf("NTLMSSP signature not found")
+	}
+
+	// 确认是Challenge消息
+	msgType := binary.LittleEndian.Uint32(data[idx+8:])
+	if msgType != NTLMSSP_CHALLENGE {
+		return nil, fmt.Errorf("not a challenge message")
+	}
+
+	// 版本信息通常在消息末尾
+	// 这里需要根据实际捕获的数据调整偏移量
+	versionOffset := idx + 48 // 这个偏移量需要根据实际数据包结构调整
+
+	version := &NTLMSSPVersion{}
+	version.ProductMajorVersion = data[versionOffset]
+	version.ProductMinorVersion = data[versionOffset+1]
+	version.ProductBuild = binary.LittleEndian.Uint16(data[versionOffset+2:])
+	copy(version.Reserved[:], data[versionOffset+4:versionOffset+7])
+	version.NTLMRevisionCurrent = data[versionOffset+7]
+
+	return version, nil
+}
+
 func (d *OSDetector) TestOSUsingSMB(targetIP string) map[string]bool {
-	result := make(map[string]bool)
-
-	// 最多重试3次
-	for retries := 0; retries < 3; retries++ {
-		// 建立TCP连接
-		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", targetIP, SMB_PORT), SMB_TIMEOUT)
-		if err != nil {
-			log.Printf("SMB连接失败(尝试 %d/3): %v\n", retries+1, err)
-			time.Sleep(time.Second) // 等待1秒后重试
-			continue
-		}
-		defer conn.Close()
-
-		// 发送SMB协商请求
-		negotiateResp, err := d.sendSMBNegotiate(conn)
-		if err != nil {
-			log.Printf("SMB协商失败(尝试 %d/3): %v\n", retries+1, err)
-			time.Sleep(time.Second) // 等待1秒后重试
-			continue
-		}
-
-		// 协商成功，解析响应
-
-		// 解析SMB响应中的操作系统信息
-		osInfo := d.parseSMBOSInfo(negotiateResp)
-		if osInfo != "" {
-			// 成功获取操作系统信息，跳出重试循环
-			log.Printf("成功获取SMB操作系统信息: %s\n", osInfo)
-			// 根据SMB响应中的操作系统信息设置权重
-			if strings.Contains(strings.ToLower(osInfo), "windows") {
-				// 根据版本信息判断具体的Windows版本
-				switch {
-				case strings.Contains(osInfo, "10.0") || strings.Contains(osInfo, "11.0"):
-					result["Windows 11"] = true
-					result["Windows 10"] = true
-					d.osWeights["Windows 11"] += 4
-					d.osWeights["Windows 10"] += 3
-				case strings.Contains(osInfo, "6.1"):
-					result["Windows 7"] = true
-					d.osWeights["Windows 7"] += 3
-				case strings.Contains(osInfo, "5.1"):
-					result["Windows XP"] = true
-					d.osWeights["Windows XP"] += 3
-				default:
-					// 如果无法确定具体版本，将所有Windows版本都标记为可能
-					result["Windows 11"] = true
-					result["Windows 10"] = true
-					result["Windows 7"] = true
-					result["Windows XP"] = true
-				}
-			}
-			// 成功完成SMB检测，返回结果
-			return result
-		}
+	resultSet := make(map[string]bool)
+	for _, os := range AllOS {
+		resultSet[os] = true
 	}
-	// 重试次数用尽，返回空结果
-	log.Println("SMB检测失败: 已达到最大重试次数")
-	return result
-}
-
-// sendSMBNegotiate 发送SMB协商请求并获取响应
-func (d *OSDetector) sendSMBNegotiate(conn net.Conn) ([]byte, error) {
-	// 设置读写超时
-	conn.SetDeadline(time.Now().Add(SMB_TIMEOUT))
-
-	// 构造SMB协商请求包
-	// 计算SMB标志和标志2的字节值
-	flags := byte(SMB_FLAGS_CASE_INSENSITIVE | SMB_FLAGS_CANONICALIZED_PATHS)
-	flags2 := uint16(SMB_FLAGS2_UNICODE | SMB_FLAGS2_NT_STATUS | SMB_FLAGS2_EXTENDED_SECURITY | SMB_FLAGS2_LONG_NAMES)
-
-	// 生成随机进程ID (16位)
-	processID := uint16(rand.Uint32() & 0xFFFF)
-
-	request := []byte{
-		0xFF, 0x53, 0x4D, 0x42, // SMB协议标识
-		SMB_COM_NEGOTIATE,      // 命令: SMB_COM_NEGOTIATE
-		0x00, 0x00, 0x00, 0x00, // 状态
-		flags,               // 标志
-		byte(flags2 & 0xFF), // 标志2 (低字节)
-		byte(flags2 >> 8),   // 标志2 (高字节)
-		0x00, 0x00,          // 进程ID高位
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 签名
-		0x00, 0x00, // 保留
-		0x00, 0x00, // TreeID
-		byte(processID & 0xFF), byte(processID >> 8), // 进程ID (随机，小端序)
-		0x00, 0x00, // 用户ID
-		0x00, 0x00, // 多路复用ID
+	if d.Verbose {
+		fmt.Println("[SMB test] OS options are:", d.formatOSSet(resultSet))
 	}
 
-	// 发送请求
-	if _, err := conn.Write(request); err != nil {
-		return nil, fmt.Errorf("发送SMB请求失败: %v", err)
-	}
-
-	// 读取响应
-	response := make([]byte, 1024)
-	n, err := conn.Read(response)
+	// 创建TCP连接
+	conn, err := net.Dial("tcp", fmt.Sprintf("%s:445", targetIP))
 	if err != nil {
-		return nil, fmt.Errorf("读取SMB响应失败: %v", err)
+		if d.Verbose {
+			fmt.Printf("[SMB test] Failed to connect: %v\n", err)
+		}
+		return resultSet
+	}
+	defer conn.Close()
+
+	// 包装为调试连接
+	debugConn := &smbDebugConn{
+		Conn:        conn,
+		verbose:     d.Verbose,
+		ntlmsspData: make([]byte, 0),
 	}
 
-	return response[:n], nil
-}
-
-// parseSMBOSInfo 从SMB响应中解析操作系统信息
-func (d *OSDetector) parseSMBOSInfo(response []byte) string {
-	// 检查响应长度
-	if len(response) < 32 {
-		return ""
+	// 创建SMB2会话
+	dialer := &smb2.Dialer{
+		Initiator: &smb2.NTLMInitiator{
+			User:     "Guest",
+			Password: "",
+			Domain:   "",
+		},
 	}
 
-	// 查找操作系统信息字段
-	// 通常在响应的后半部分，包含类似"Windows 10 10.0"这样的字符串
-	for i := 32; i < len(response)-10; i++ {
-		if response[i] == 'W' && response[i+1] == 'i' && response[i+2] == 'n' {
-			// 找到Windows字符串，提取操作系统信息
-			osInfo := make([]byte, 0)
-			for j := i; j < len(response) && response[j] != 0; j++ {
-				osInfo = append(osInfo, response[j])
+	// 建立SMB会话
+	session, err := dialer.Dial(debugConn)
+	if err != nil {
+		if d.Verbose {
+			fmt.Printf("[SMB test] Session error: %v\n", err)
+		}
+		// 即使连接失败，我们也可能已经获取到了NTLMSSP消息
+	}
+
+	// 尝试解析版本信息
+	if version, err := parseNTLMSSPVersion(debugConn.ntlmsspData); err == nil {
+		// 保存版本信息到检测器实例
+		d.smbVersion = version
+
+		if d.Verbose {
+			fmt.Printf("[SMB test] Detected Windows version: %d.%d.%d\n",
+				version.ProductMajorVersion,
+				version.ProductMinorVersion,
+				version.ProductBuild)
+		}
+
+		// 根据主版本号确定Windows版本
+		switch version.ProductMajorVersion {
+		case 10:
+			resultSet = make(map[string]bool)
+			resultSet["Windows 10"] = true
+			resultSet["Windows 11"] = true
+			d.osWeights["Windows 10"] += 3
+			d.osWeights["Windows 11"] += 3
+
+			// 根据build号进一步区分Windows 10和11
+			if version.ProductBuild >= 22000 {
+				d.osWeights["Windows 11"] += 2
+			} else {
+				d.osWeights["Windows 10"] += 2
 			}
-			return string(osInfo)
+		case 6:
+			switch version.ProductMinorVersion {
+			case 1:
+				resultSet = make(map[string]bool)
+				resultSet["Windows 7"] = true
+				d.osWeights["Windows 7"] += 5
+			case 2, 3:
+				resultSet = make(map[string]bool)
+				resultSet["Windows 8"] = true
+				d.osWeights["Windows 8"] += 5
+			}
+		case 5:
+			resultSet = make(map[string]bool)
+			resultSet["Windows XP"] = true
+			d.osWeights["Windows XP"] += 5
 		}
 	}
 
-	return ""
+	if session != nil {
+		session.Logoff()
+	}
+
+	return resultSet
 }
