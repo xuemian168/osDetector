@@ -1,0 +1,13 @@
+# Nmap 7.95 scan initiated Wed Apr  9 17:28:18 2025 as: nmap -os-guess -vv 192.168.110.249
+Nmap scan report for 192.168.110.249
+Host is up, received conn-refused (0.0042s latency).
+Scanned at 2025-04-09 17:28:18 AEST for 10s
+Not shown: 996 closed tcp ports (conn-refused)
+PORT     STATE SERVICE    REASON
+22/tcp   open  ssh        syn-ack
+53/tcp   open  domain     syn-ack
+111/tcp  open  rpcbind    syn-ack
+3128/tcp open  squid-http syn-ack
+
+Read data files from: /opt/homebrew/bin/../share/nmap
+# Nmap done at Wed Apr  9 17:28:28 2025 -- 1 IP address (1 host up) scanned in 9.59 seconds

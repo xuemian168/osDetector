@@ -29,14 +29,14 @@ func main() {
 	detector := detector.NewOSDetector(*verbose)
 
 	// 执行存活检测
-	isAlive, isPing := detector.SurvivalDetect(*target)
+	isAlive := detector.IsAlive(*target)
 	if !isAlive {
 		log.Println("目标：", *target, "可能没有存活，检测结束")
 		os.Exit(0)
 	}
 
 	// 执行操作系统检测
-	result := detector.DetectOS(*target, isPing)
+	result := detector.DetectOS(*target)
 
 	// 输出结果
 	fmt.Println("\n操作系统最终检测结果为：", result)
