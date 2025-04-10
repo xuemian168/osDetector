@@ -1,6 +1,6 @@
-# OS Detector
+[English](./README.md) ｜ 中文
 
-## [English Introduction](./README.md)
+# OS Detector
 
 ## 描述
 这是一个基于TCP/IP栈指纹识别技术的操作系统检测工具，使用Go语言实现。该工具参考了nmap的操作系统检测原理，能够通过分析网络数据包的特征来识别目标主机运行的操作系统类型。

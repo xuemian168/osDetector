@@ -1,6 +1,6 @@
-# OS Detector
+## [中文](./README_CN.md)| English
 
-## [中文介绍](./README_CN.md)
+# OS Detector
 
 ## Description
 This is an operating system detection tool based on TCP/IP stack fingerprinting technology, implemented in Go. The tool references the operating system detection principles of nmap and can identify the operating system type of the target host by analyzing the characteristics of network packets.
